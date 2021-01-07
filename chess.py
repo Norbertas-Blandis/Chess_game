@@ -1,4 +1,4 @@
-from tkinter import Tk, Canvas, PhotoImage, Button
+from tkinter import Tk, Canvas, PhotoImage, Button, messagebox
 
 
 
@@ -160,6 +160,9 @@ def remove_player(old_y, old_x, new_y, new_x, color, character_type, index, team
 
 def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
 
+	global whose_turn
+	whose_turn += 1
+
 	print(old_x, old_y, " moves to ", new_x, new_y)
 
 	removing_unwanted_pieces()
@@ -307,6 +310,15 @@ def pawn_pressed(y, x, color, index):
 
 	print("Pawn pressed")
 
+	if(color == "white"):
+		opp_color = "black"
+	else:
+		opp_color = "white"
+	if((whose_turn%2 == 0 and color == "black") or (whose_turn%2 != 0 and color == "white")):
+		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
+		return None
+
+
 	#Clearing current possible moves squares for new options when clicked
 	global possible_moves
 	if(len(possible_moves) != 0):
@@ -384,6 +396,9 @@ def rook_possible_moves(i, temporary_y_coord, temporary_x_coord, team, opp_team,
 
 
 def rook_pressed(y, x, color, index):
+
+	if(whose_turn == 0 and color == "black"):
+		return None
 
 	removing_unwanted_pieces()
 
@@ -719,6 +734,7 @@ black_team = Team([None]*16, [None]*16, [None]*16, "black", [0]*16, [1]*16, [Non
 white_team = Team([None]*16, [None]*16, [None]*16, "white", [0]*16, [1]*16, [None]*16, 16, [None]*16, [0]*16)
 possible_moves, possible_attacks = [], []
 click_x, click_y = 0, 0
+whose_turn = 0 #even-white, odd-black
 
 #Upload background images
 white_square = PhotoImage(file = "white_square.png")
