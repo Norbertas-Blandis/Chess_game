@@ -10,14 +10,17 @@ def configure_game():
 
 class Team:
 
-	def __init__(self, team_list, x_coord, y_coord, color, count, lives, button):
+	def __init__(self, team_list, x_coord, y_coord, color, count, lives, button, alive_characters, in_danger, is_in_danger):
 		self.list = team_list
 		self.x_coord = x_coord
 		self.y_coord = y_coord
 		self.color = color
 		self.count = count
-		self.lives = lives
+		self.life = lives
 		self.button = button
+		self.alive_characters = alive_characters
+		self.in_danger_buttons = in_danger
+		self.is_in_danger = is_in_danger
 
 
 class Possible_moves:
@@ -42,7 +45,62 @@ def check_square_color(y, x):
 	return temporary_image
 
 
-def click_coordinates(event, possible_move_x, possible_move_y, y, x, color, character, index, team):
+def check_attack_color(x, y, team, color):
+
+	for i in range(16):
+		if(team.x_coord[i] == x and team.y_coord[i] == y):
+			print("Match")
+			if(team.list[i] == "pawn"):
+				if(color == "black"):
+					image = b_pawn_r
+				else:
+					image = w_pawn_r
+
+			if(team.list[i] == "knight"):
+				if(color == "black"):
+					image = b_knight_r
+				else:
+					image = w_knight_r
+
+			if(team.list[i] == "rook"):
+				if(color == "black"):
+					image = b_rook_r
+				else:
+					image = w_rook_r
+
+			if(team.list[i] == "bishop"):
+				if(color == "black"):
+					image = b_bishop_r
+				else:
+					image = w_bishop_r
+
+			if(team.list[i] == "queen"):
+				if(color == "black"):
+					image = b_queen_r
+				else:
+					image = w_queen_r
+
+			if(team.list[i] == "king"):
+				if(color == "black"):
+					image = b_king_r
+				else:
+					image = w_king_r
+
+	return image
+
+
+def recover_hidden_buttons(opp_team):
+
+	for i in range(16):
+
+		if(opp_team.is_in_danger[i] == 1 and opp_team.life[i] == 1):
+			print("Recovering buttons")
+			game_canvas.itemconfigure(opp_team.button[i], state = "normal")
+			window.update()
+			opp_team.is_in_danger[i] = 0
+
+
+def click_coordinates(event, possible_move_x, possible_move_y, y, x, color, character, index, team, possible_attack_x, possible_attack_y, opp_team):
 	click_x, click_y = event.x, event.y
 
 	#If the pawn was mooved for the first time, next move only 1 space
@@ -58,28 +116,68 @@ def click_coordinates(event, possible_move_x, possible_move_y, y, x, color, char
 			if(click_y > possible_move_coord_y and click_y < possible_move_coord_y+80):
 				move_player(y, x, possible_move_y[i], possible_move_x[i], color, character, index)
 
+	#Looping through all possible attacks and if click match, call remove_player
+	for i in range(len(possible_attack_x)):
+
+		possible_attack_coord_x = possible_attack_x[i]*80
+		possible_attack_coord_y = possible_attack_y[i]*80
+		if(click_x > possible_attack_coord_x and click_x < possible_attack_coord_x+80):
+			if(click_y > possible_attack_coord_y and click_y < possible_attack_coord_y+80):
+				remove_player(team.y_coord[index], team.x_coord[index], possible_attack_y[i], possible_attack_x[i], color, character, index, team, opp_team)
+
+
+def removing_unwanted_pieces():
+
+	#Deleting possible moves and attack squares
+	global possible_moves, possible_attacks
+	for i in range(len(possible_moves)):
+		game_canvas.delete(possible_moves[i])
+	for i in range(len(possible_attacks)):
+		game_canvas.delete(possible_attacks[i])
+	window.update()
+	possible_moves, possible_attacks = [], []
+
+
+def remove_player(old_y, old_x, new_y, new_x, color, character_type, index, team, opp_team):
+
+	removing_unwanted_pieces()
+
+	#Deleting the player from the opposite team
+	for i in range(16):
+		if(new_x == opp_team.x_coord[i] and new_y == opp_team.y_coord[i]):
+			game_canvas.delete(opp_team.button[i])
+			opp_team.life[i] = 0
+			opp_team.alive_characters -= 1
+			opp_team.x_coord[i] = None
+			opp_team.x_coord[i] = None
+		else:
+			recover_hidden_buttons(opp_team)
+
+
+
+	move_player(old_y, old_x, new_y, new_x, color, character_type, index)
+
 
 def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
+
 	print(old_x, old_y, " moves to ", new_x, new_y)
 
-	#Deleting possible moves squares
-	global possible_moves, black_team, white_team
-	print(len(possible_moves))
-	for x in range(len(possible_moves)):
-		game_canvas.delete(possible_moves[x])
-	window.update()
-	possible_moves = []
+	removing_unwanted_pieces()
 
 	#Changing the piece coordinates to new ones
 	if(color == "black"):
 		team = black_team
+		opp_team = white_team
 	else:
 		team = white_team
+		opp_team = black_team
 	for i in range(16):
 		if(team.x_coord[i]==old_x and team.y_coord[i]==old_y):
 			game_canvas.delete(team.button[i])
 			team.x_coord[i] = new_x
 			team.y_coord[i] = new_y
+
+	recover_hidden_buttons(opp_team)
 
 	#Checking which character button should be created
 	if(character_type == "pawn"):
@@ -121,10 +219,14 @@ def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
 	window.update()
 
 
-def pawn_pressed_1(team, other_team, y, x, direction, z, index):
+def pawn_pressed_1(team, opp_team, y, x, direction, z, index):
 
-	global free_move, possible_moves
+	global free_move
 	new_y_coord, new_x_coord = [], []
+
+	removing_unwanted_pieces()
+
+	recover_hidden_buttons(opp_team)
 
 	#Checking if it is the first move
 	if(team.count[index] == 0):
@@ -132,49 +234,72 @@ def pawn_pressed_1(team, other_team, y, x, direction, z, index):
 	else:
 		times = 1
 
-	possible_moves = [None]*times
+
+	possible_attack_x, possible_attack_y, is_taken = [], [], 0
 	#Looking at all possible moves for the pawn
 	for i in range(times):
-
 		new_x_coord.append(x)
 
 		if(i == 0):
 			new_y_coord.append(y + direction)
 		else:
+			print(new_y_coord[i-1])
 			new_y_coord.append(new_y_coord[i-1] + direction)
 
 		#Looping through all pieces and checking if another one is encountered
-		for j in range(16):
+		for z in range(16):
+			if(new_y_coord[i]==opp_team.y_coord[z] and x==opp_team.x_coord[z]):
+				if(times == 2 and i == 0): #Makes sure pawn cannot jump on the first move
+					is_taken = 1
+					print("Space taken at ", x, new_y_coord[i])
 
-			if(new_y_coord[i]==team.y_coord[z] and x==team.x_coord[z]):
-				print("Space taken at ", x, new_y_coord[i])
-				free_move = False
+			elif(new_y_coord[i] == opp_team.y_coord[z] and i == 0):
+				if(x+1 == opp_team.x_coord[z]):
+					print("Can attack at ", opp_team.x_coord[z], new_y_coord[i])
+					possible_attacks.append(None)
+					possible_attack_x.append(opp_team.x_coord[z])
+					possible_attack_y.append(opp_team.y_coord[z])
 
-			elif(new_y_coord[i]==other_team.y_coord[z] and x==other_team.x_coord[z]):
-				print("Can attack at ", x, new_y_coord[i])
-				free_move = False
+				if(x-1 == opp_team.x_coord[z] and i == 0):
+					print("Can attack at ", opp_team.x_coord[z], new_y_coord[i])
+					possible_attacks.append(None)
+					possible_attack_x.append(opp_team.x_coord[z])
+					possible_attack_y.append(opp_team.y_coord[z])
 
 			elif(new_y_coord[i]>7 or new_y_coord[i]<0 or new_x_coord[i]>7 or new_x_coord[i]<0):
 				print("Out of bounds")
-				free_move = False
-				break
 
 		if not free_move: #If the pawn cannot move exit the function
-			return None
+			break
 
 
 	#Binding key press to check if possible move was pressed
-	game_canvas.bind("<Button-1>", lambda event: click_coordinates(event, new_x_coord, new_y_coord, y, x, team.color, "pawn", index, team))
+	game_canvas.bind("<Button-1>", lambda event: click_coordinates(event, new_x_coord, new_y_coord, y, x, team.color, "pawn", index, team, possible_attack_x, possible_attack_y, opp_team))
+
+	if is_taken == 1:
+		times -= 1
 
 	#Creating green squares for possible moves
 	for i in range(times):
-
 		if(check_square_color(new_x_coord[i], new_y_coord[i]) == "black"):
 			temporary_image = green_b
 		else:
 			temporary_image = green_w
 
-		possible_moves[i] = game_canvas.create_image(80*new_x_coord[i], 80*new_y_coord[i], image = temporary_image, anchor = "nw")
+		possible_moves.append(game_canvas.create_image(80*new_x_coord[i], 80*new_y_coord[i], image = temporary_image, anchor = "nw"))
+		window.update()
+
+	#Creating red squares for attack moves
+	for i in range(len(possible_attacks)):
+		#Temporarily hiding opp_team button, because it is in the way of red
+		for z in range(16):
+			if(opp_team.x_coord[z]==possible_attack_x[i] and opp_team.y_coord[z]==possible_attack_y[i]):
+				opp_team.is_in_danger[z] = 1
+				game_canvas.itemconfigure(opp_team.button[z], state = "hidden")
+
+		temporary_image = check_attack_color(possible_attack_x[i], possible_attack_y[i], opp_team, opp_team.color)
+
+		possible_attacks[i] = game_canvas.create_image(80*possible_attack_x[i], 80*possible_attack_y[i], image = temporary_image, anchor = "nw")
 		window.update()
 
 
@@ -197,9 +322,13 @@ def pawn_pressed(y, x, color, index):
 	#Looking if the selected pawn is white or black
 	for z in range(16):
 		if(y==black_team.y_coord[z] and x==black_team.x_coord[z]):
+			team = black_team
+			opp_team = white_team
 			pawn_pressed_1(black_team, white_team, y, x, 1, z, index)
 
 		if(y==white_team.y_coord[z] and x==white_team.x_coord[z]):
+			team = white_team
+			opp_team = black_team
 			pawn_pressed_1(white_team, black_team, y, x, -1, z, index)
 
 		#If there are no free moves, then quit searching for more moves
@@ -209,7 +338,7 @@ def pawn_pressed(y, x, color, index):
 
 def rook_possible_moves(i, temporary_y_coord, temporary_x_coord, team, opp_team, direction):
 
-	rook_move = Possible_moves([], [], None, None, None, None)
+	rook_move = Possible_moves([], [], None, None, [], [])
 
 	#Figuring out if the rook moves vertically or horizontally
 	is_free = True
@@ -221,27 +350,28 @@ def rook_possible_moves(i, temporary_y_coord, temporary_x_coord, team, opp_team,
 		add_to_x = i
 
 	#Looping through possible move options until a problem encountered
-	
 	while is_free:
 		temporary_y_coord += add_to_y
 		temporary_x_coord += add_to_x
 		for z in range(16):
 			if(temporary_y_coord==team.y_coord[z] and temporary_x_coord==team.x_coord[z]):
-				print("Space taken at", temporary_x_coord, temporary_y_coord)
-				rook_move.taken_x = temporary_x_coord
-				rook_move.taken_y = temporary_y_coord
-				is_free = False
-				break
+				if(team.life[z] == 1):
+					#print("Space taken at", temporary_x_coord, temporary_y_coord)
+					rook_move.taken_x = temporary_x_coord
+					rook_move.taken_y = temporary_y_coord
+					is_free = False
+					break
 
 			if(temporary_y_coord==opp_team.y_coord[z] and temporary_x_coord==opp_team.x_coord[z]):
-				print("Can attack at", temporary_x_coord, temporary_y_coord)
-				rook_move.attack_x = temporary_x_coord
-				rook_move.attack_y = temporary_y_coord
-				is_free = False
-				break
+				if(opp_team.life[z] == 1):
+					#print("Can attack at", temporary_x_coord, temporary_y_coord)
+					rook_move.attack_x.append(temporary_x_coord)
+					rook_move.attack_y.append(temporary_y_coord)
+					is_free = False
+					break
 
 			if(temporary_y_coord>7 or temporary_y_coord<0 or temporary_x_coord>7 or temporary_x_coord<0):
-				print("Out of bounds")
+				#print("Out of bounds")
 				is_free = False
 				break
 
@@ -255,13 +385,7 @@ def rook_possible_moves(i, temporary_y_coord, temporary_x_coord, team, opp_team,
 
 def rook_pressed(y, x, color, index):
 
-	#Deleting possible moves squares
-	global possible_moves
-	print(len(possible_moves))
-	for x in range(len(possible_moves)):
-		game_canvas.delete(possible_moves[x])
-	window.update()
-	possible_moves = []
+	removing_unwanted_pieces()
 
 	#Finding out exactly which piece was pressed
 	if(color == "black"):
@@ -272,6 +396,12 @@ def rook_pressed(y, x, color, index):
 		team = white_team
 		opp_team = black_team
 		direction = [1, 1, -1, -1] #1-down, 2-right, 3-up, 4-right
+
+	recover_hidden_buttons(opp_team)
+
+	#Do not know why, but sometimes x, y are false, so converting them
+	x, y = team.x_coord[index], team.y_coord[index]
+	print("Rook pressed at", x, y)
 
 	#Creating a list and adding to it objects that contain move info
 	rook_moves = []
@@ -290,6 +420,7 @@ def rook_pressed(y, x, color, index):
 
 	#Adding possible moves coordinates to new lists
 	possible_move_x, possible_move_y = [], []
+	possible_attack_x, possible_attack_y = [], []
 	for i in range(len(rook_moves)):
 
 		#Adding possible free moves to the list
@@ -299,19 +430,39 @@ def rook_pressed(y, x, color, index):
 				possible_move_x.append(rook_moves[i].free_x_list[z])
 				possible_move_y.append(rook_moves[i].free_y_list[z])
 
+		#Adding possible attack moves to the list
+		if(len(rook_moves[i].attack_x) > 0):
+			for z in range(len(rook_moves[i].attack_x)):
+				possible_attacks.append(None)
+				possible_attack_x.append(rook_moves[i].attack_x[z])
+				possible_attack_y.append(rook_moves[i].attack_y[z])
+
 
 	#Binding key press to check if possible move was pressed
-	game_canvas.bind("<Button-1>", lambda event: click_coordinates(event, possible_move_x, possible_move_y, y, x, color, "rook", index, team))
+	game_canvas.bind("<Button-1>", lambda event: click_coordinates(event, possible_move_x, possible_move_y, y, x, color, "rook", index, team, possible_attack_x, possible_attack_y, opp_team))
 
 	#Creating green squares for possible moves
-	for i in range(len(possible_moves)):
-
+	for i in range(len(possible_moves)):	
 		if(check_square_color(possible_move_x[i], possible_move_y[i]) == "black"):
 			temporary_image = green_b
 		else:
 			temporary_image = green_w
 
 		possible_moves[i] = game_canvas.create_image(80*possible_move_x[i], 80*possible_move_y[i], image = temporary_image, anchor = "nw")
+		window.update()
+
+	#Creating red squares for attack moves
+	for i in range(len(possible_attacks)):
+
+		#Temporarily hiding opp_team button, because it is in the way of red
+		for z in range(16):
+			if(opp_team.x_coord[z]==possible_attack_x[i] and opp_team.y_coord[z]==possible_attack_y[i]):
+				opp_team.is_in_danger[z] = 1
+				game_canvas.itemconfigure(opp_team.button[z], state = "hidden")
+
+		temporary_image = check_attack_color(possible_attack_x[i], possible_attack_y[i], opp_team, opp_team.color)
+
+		possible_attacks[i] = game_canvas.create_image(80*possible_attack_x[i], 80*possible_attack_y[i], image = temporary_image, anchor = "nw")
 		window.update()
 
 
@@ -564,9 +715,9 @@ def mainloop():
 window = Tk()
 
 #Defining team variables
-black_team = Team([None]*16, [None]*16, [None]*16, "black", [0]*16, [1]*16, [None]*16)
-white_team = Team([None]*16, [None]*16, [None]*16, "white", [0]*16, [1]*16, [None]*16)
-possible_moves = []
+black_team = Team([None]*16, [None]*16, [None]*16, "black", [0]*16, [1]*16, [None]*16, 16, [None]*16, [0]*16)
+white_team = Team([None]*16, [None]*16, [None]*16, "white", [0]*16, [1]*16, [None]*16, 16, [None]*16, [0]*16)
+possible_moves, possible_attacks = [], []
 click_x, click_y = 0, 0
 
 #Upload background images
@@ -580,36 +731,48 @@ b_rook_b = PhotoImage(file = "b_rook_b.png")
 b_rook_w = PhotoImage(file = "b_rook_w.png")
 w_rook_b = PhotoImage(file = "w_rook_b.png")
 w_rook_w = PhotoImage(file = "w_rook_w.png")
+b_rook_r = PhotoImage(file = "b_rook_r.png")
+w_rook_r = PhotoImage(file = "w_rook_r.png")
 
 #Upload pawns
 b_pawn_b = PhotoImage(file = "b_pawn_b.png")
 b_pawn_w = PhotoImage(file = "b_pawn_w.png")
 w_pawn_b = PhotoImage(file = "w_pawn_b.png")
 w_pawn_w = PhotoImage(file = "w_pawn_w.png")
+b_pawn_r = PhotoImage(file = "b_pawn_r.png")
+w_pawn_r = PhotoImage(file = "w_pawn_r.png")
 
 #Upload knights
 b_knight_b = PhotoImage(file = "b_knight_b.png")
 b_knight_w = PhotoImage(file = "b_knight_w.png")
 w_knight_b = PhotoImage(file = "w_knight_b.png")
 w_knight_w = PhotoImage(file = "w_knight_w.png")
+b_knight_r = PhotoImage(file = "b_knight_r.png")
+w_knight_r = PhotoImage(file = "w_knight_r.png")
 
 #Upload bishops
 b_bishop_b = PhotoImage(file = "b_bishop_b.png")
 b_bishop_w = PhotoImage(file = "b_bishop_w.png")
 w_bishop_b = PhotoImage(file = "w_bishop_b.png")
 w_bishop_w = PhotoImage(file = "w_bishop_w.png")
+b_bishop_r = PhotoImage(file = "b_bishop_r.png")
+w_bishop_r = PhotoImage(file = "w_bishop_r.png")
 
 #Upload queens
 b_queen_b = PhotoImage(file = "b_queen_b.png")
 b_queen_w = PhotoImage(file = "b_queen_w.png")
 w_queen_b = PhotoImage(file = "w_queen_b.png")
 w_queen_w = PhotoImage(file = "w_queen_w.png")
+b_queen_r = PhotoImage(file = "b_queen_r.png")
+w_queen_r = PhotoImage(file = "w_queen_r.png")
 
 #Upload kings
 b_king_b = PhotoImage(file = "b_king_b.png")
 b_king_w = PhotoImage(file = "b_king_w.png")
 w_king_b = PhotoImage(file = "w_king_b.png")
 w_king_w = PhotoImage(file = "w_king_w.png")
+b_king_r = PhotoImage(file = "b_king_r.png")
+w_king_r = PhotoImage(file = "w_king_r.png")
 
 
 configure_game()
