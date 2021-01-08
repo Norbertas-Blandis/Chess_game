@@ -25,13 +25,16 @@ class Team:
 
 class Possible_moves:
 
-	def __init__(self, free_x_list, free_y_list, taken_x, taken_y, attack_x, attack_y):
+	def __init__(self, free_x_list, free_y_list, taken_x, taken_y, attack_x, attack_y, out_x, out_y):
 		self.free_x_list = free_x_list
 		self.free_y_list = free_y_list
 		self.taken_x = taken_x
 		self.taken_y = taken_y
 		self.attack_x = attack_x
 		self.attack_y = attack_y
+		self.out_x = out_x
+		self.out_y = out_y
+
 
 
 def check_square_color(y, x):
@@ -164,6 +167,8 @@ def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
 	whose_turn += 1
 
 	print(old_x, old_y, " moves to ", new_x, new_y)
+
+	print("Length of green squares: ", len(possible_moves))
 
 	removing_unwanted_pieces()
 
@@ -306,7 +311,7 @@ def pawn_pressed_1(team, opp_team, y, x, direction, z, index):
 		window.update()
 
 
-def pawn_pressed(y, x, color, index):
+def pawn_pressed(y, x, color, index, team, opp_team):
 
 	print("Pawn pressed")
 
@@ -350,7 +355,7 @@ def pawn_pressed(y, x, color, index):
 
 def rook_possible_moves(i, temporary_y_coord, temporary_x_coord, team, opp_team, direction):
 
-	rook_move = Possible_moves([], [], None, None, [], [])
+	rook_move = Possible_moves([], [], [], [], [], [], [], [])
 
 	#Figuring out if the rook moves vertically or horizontally
 	is_free = True
@@ -395,21 +400,22 @@ def rook_possible_moves(i, temporary_y_coord, temporary_x_coord, team, opp_team,
 	return rook_move
 
 
-def rook_pressed(y, x, color, index):
+def rook_pressed(y, x, color, index, team, opp_team):
 
-	if(whose_turn == 0 and color == "black"):
+	if(color == "white"):
+		opp_color = "black"
+	else:
+		opp_color = "white"
+	if((whose_turn%2 == 0 and color == "black") or (whose_turn%2 != 0 and color == "white")):
+		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
 		return None
 
 	removing_unwanted_pieces()
 
 	#Finding out exactly which piece was pressed
 	if(color == "black"):
-		team = black_team
-		opp_team = white_team
 		direction = [1, 1, -1, -1] #1-down, 2-right, 3-up, 4-right
 	else:
-		team = white_team
-		opp_team = black_team
 		direction = [1, 1, -1, -1] #1-down, 2-right, 3-up, 4-right
 
 	recover_hidden_buttons(opp_team)
@@ -481,14 +487,161 @@ def rook_pressed(y, x, color, index):
 		window.update()
 
 
-def knight_pressed(y, x, color, index):
-	if(color == "black"):
-		direction = 1
-		team = black_team
-	else:
-		direction = -1
-		team = white_team
+def knight_pressed(y, x, color, index, team, opp_team):
+
 	print("Knight pressed")
+
+	if(color == "white"):
+		opp_color = "black"
+	else:
+		opp_color = "white"
+	if((whose_turn%2 == 0 and color == "black") or (whose_turn%2 != 0 and color == "white")):
+		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
+		return None
+
+	removing_unwanted_pieces()
+
+	recover_hidden_buttons(opp_team)
+
+	direction = [(1, 2), (2, 1), (1, -2), (-2, 1)] #(x, y) [down, right, up, left]
+
+	knight_move = Possible_moves([], [], [], [], [], [], [], [])
+
+	for z in range(4):
+		direct = direction[z]
+
+		#Determining which direction the piece goes
+		if(direct[0] == 1):
+			check_x_twice = True
+			check_y_twice = False
+		else:
+			check_x_twice = False
+			check_y_twice = True
+
+		#Ckecking all team and opp_team pieces
+		for i in range(16):
+			if check_x_twice: #If the piece goes up or down
+
+				if(y+direct[1] == team.y_coord[i] and x+1 == team.x_coord[i]):
+					knight_move.taken_x.append(team.x_coord[i])
+					knight_move.taken_y.append(team.y_coord[i])
+					print("Space taken at", team.x_coord[i], team.y_coord[i])
+				elif(y+direct[1] == team.y_coord[i] and x-1 == team.x_coord[i]):
+					knight_move.taken_x.append(team.x_coord[i])
+					knight_move.taken_y.append(team.y_coord[i])
+					print("Space taken at", team.x_coord[i], team.y_coord[i])
+
+				if(y+direct[1] == opp_team.y_coord[i] and x+1 == opp_team.x_coord[i]):
+					knight_move.attack_x.append(opp_team.x_coord[i])
+					knight_move.attack_y.append(opp_team.y_coord[i])
+					print("Can attack at", opp_team.x_coord[i], opp_team.y_coord[i])
+				elif(y+direct[1] == opp_team.y_coord[i] and x-1 == opp_team.x_coord[i]):
+					knight_move.attack_x.append(opp_team.x_coord[i])
+					knight_move.attack_y.append(opp_team.y_coord[i])
+					print("Can attack at", opp_team.x_coord[i], opp_team.y_coord[i])
+
+				if(y+direct[1] < 0 or y+direct[1] > 7 or x+1 < 0 or x+1 > 7):
+					print("Out of bounds at",x+1, y+direct[1])
+					knight_move.out_x.append(x+1)
+					knight_move.out_y.append(y+direct[1])
+				elif(y+direct[1] < 0 or y+direct[1] > 7 or x-1 < 0 or x-1 > 7):
+					print("Out of bounds at",x-1, y+direct[1])
+					knight_move.out_x.append(x-1)
+					knight_move.out_y.append(y+direct[1])
+
+
+			else: #If the piece goes left or right
+
+				if(y+1 == team.y_coord[i] and x+direct[0] == team.x_coord[i]):
+					knight_move.taken_x.append(team.x_coord[i])
+					knight_move.taken_y.append(team.y_coord[i])
+					print("Space taken at", team.x_coord[i], team.y_coord[i])
+				elif(y-1 == team.y_coord[i] and x+direct[0] == team.x_coord[i]):
+					knight_move.taken_x.append(team.x_coord[i])
+					knight_move.taken_y.append(team.y_coord[i])
+					print("Space taken at", team.x_coord[i], team.y_coord[i])
+
+				if(y+1 == opp_team.y_coord[i] and x+direct[0] == opp_team.x_coord[i]):
+					knight_move.taken_x.append(opp_team.x_coord[i])
+					knight_move.taken_y.append(opp_team.y_coord[i])
+					print("Can attack at", opp_team.x_coord[i], opp_team.y_coord[i])
+				elif(y-1 == opp_team.y_coord[i] and x+direct[0] == opp_team.x_coord[i]):
+					knight_move.taken_x.append(opp_team.x_coord[i])
+					knight_move.taken_y.append(opp_team.y_coord[i])
+					print("Can attack at", opp_team.x_coord[i], opp_team.y_coord[i])
+
+				if(y+1 < 0 or y+1 > 7 or x+direct[0] < 0 or x+direct[0] > 7):
+					knight_move.out_x.append(x+direct[0])
+					knight_move.out_y.append(y+1)
+				elif(y-1 < 0 or y-1 > 7 or x+direct[0] < 0 or x+direct[0] > 7):
+					knight_move.out_x.append(x+direct[0])
+					knight_move.out_y.append(y-1)
+
+		#Max amount of moves knight can have
+		if check_x_twice:
+			for z in range(2):
+
+				if(z == 0):
+					new_x = x + 1
+				else:
+					new_x = x - 1
+
+				if(y+direct[1] not in knight_move.taken_y or new_x not in knight_move.taken_x):
+					if(y+direct[1] not in knight_move.attack_y or new_x not in knight_move.attack_x):
+						if(y+direct[1] not in knight_move.out_y or new_x not in knight_move.out_x):
+							print("Adding possible move at",new_x, y+direct[1])
+							knight_move.free_x_list.append(new_x)
+							knight_move.free_y_list.append(y+direct[1])
+
+		else:
+			for z in range(2):
+
+				if(z == 0):
+					new_y = y + 1
+				else:
+					new_y = y - 1
+
+				if(new_y not in knight_move.taken_y or x+direct[0] not in knight_move.taken_x):
+					if(new_y not in knight_move.attack_y or x+direct[0] not in knight_move.attack_x):
+						if(new_y not in knight_move.out_y or x+direct[0] not in knight_move.out_x):
+							print("Adding possible move at",x+direct[0], new_y)
+							knight_move.free_x_list.append(x+direct[0])
+							knight_move.free_y_list.append(new_y)
+
+	#Adding possible moves and attack to seperate lists
+	global possible_moves, possible_attacks
+	possible_moves = [None]*len(knight_move.free_x_list)
+	possible_attacks = [None]*len(knight_move.attack_x)
+
+	print("Possible move count: ", len(possible_moves))
+	print("Possible attack count: ", len(possible_attacks))
+
+	#Binding key press to check if possible move was pressed
+	game_canvas.bind("<Button-1>", lambda event: click_coordinates(event, knight_move.free_x_list, knight_move.free_y_list, y, x, color, "knight", index, team, knight_move.attack_x, knight_move.attack_y, opp_team))
+
+	#Creating green squares for possible moves
+	for i in range(len(knight_move.free_x_list)):	
+		if(check_square_color(knight_move.free_x_list[i], knight_move.free_y_list[i]) == "black"):
+			temporary_image = green_b
+		else:
+			temporary_image = green_w
+
+		possible_moves[i] = game_canvas.create_image(80*knight_move.free_x_list[i], 80*knight_move.free_y_list[i], image = temporary_image, anchor = "nw")
+		window.update()
+
+	#Creating red squares for attack moves
+	for i in range(len(possible_attacks)):
+
+		#Temporarily hiding opp_team button, because it is in the way of red
+		for z in range(16):
+			if(opp_team.x_coord[z]==knight_move.attack_x[i] and opp_team.y_coord[z]==knight_move.attack_y[i]):
+				opp_team.is_in_danger[z] = 1
+				game_canvas.itemconfigure(opp_team.button[z], state = "hidden")
+
+		temporary_image = check_attack_color(knight_move.attack_x[i], knight_move.attack_y[i], opp_team, opp_team.color)
+
+		possible_attacks[i] = game_canvas.create_image(80*knight_move.attack_x[i], 80*knight_move.attack_y[i], image = temporary_image, anchor = "nw")
+		window.update()
 
 
 def bishop_pressed(y, x, color, index):
@@ -634,8 +787,17 @@ def display_character(y, x, image_1, image_2, character_type, color, index):
 	elif(character_type == "king"):
 		temporary_command = king_pressed
 
+
+	#Finding out exactly which piece was pressed
+	if(color == "black"):
+		team = black_team
+		opp_team = white_team
+	else:
+		team = white_team
+		opp_team = black_team
+
 	#Creating the button
-	temporary_button = Button(window, image = temporary_image, height = "80", width = "80", command = lambda:temporary_command(y, x, color, index))
+	temporary_button = Button(window, image = temporary_image, height = "80", width = "80", command = lambda:temporary_command(y, x, color, index, team, opp_team))
 
 	#Adding the created button to the team class
 	if(color == "black"):
