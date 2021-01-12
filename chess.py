@@ -36,7 +36,6 @@ class Possible_moves:
 		self.out_y = out_y
 
 
-
 def check_square_color(y, x):
 	if(y%2==0 and x%2==0):
 		temporary_image = "white"
@@ -132,8 +131,6 @@ def click_coordinates(event, possible_move_x, possible_move_y, y, x, color, char
 def removing_unwanted_pieces():
 
 	global possible_moves, possible_attacks
-	print("Removing unwanted pieces lol ")
-	print("how many green squares: ", len(possible_moves),"How many red ones: ", len(possible_attacks))
 
 	#Deleting possible moves and attack squares
 	for i in range(len(possible_moves)):
@@ -156,13 +153,14 @@ def remove_player(old_y, old_x, new_y, new_x, color, character_type, index, team
 			opp_team.alive_characters -= 1
 			opp_team.x_coord[i] = None
 			opp_team.x_coord[i] = None
+			#Ckecking if the game is over
+			if(opp_team.list[i] == "king"):
+				messagebox.showinfo("Congratulations!", "Congratulations! The "+color+" team has won!")
+				window.destroy()
 		else:
 			recover_hidden_buttons(opp_team)
 
-
-
 	move_player(old_y, old_x, new_y, new_x, color, character_type, index)
-
 
 def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
 
@@ -506,6 +504,7 @@ def knight_pressed(y, x, color, index, team, opp_team):
 
 	knight_move = Possible_moves([], [], [], [], [], [], [], [])
 
+	#Looping through all possible directions
 	for z in range(4):
 		direct = direction[z]
 
@@ -683,14 +682,58 @@ def queen_pressed(y, x, color, index, team, opp_team):
 	rook_pressed(y, x, color, index, team, opp_team)
 
 
-def king_pressed(y, x, color, index):
-	if(color == "black"):
-		direction = 1
-		team = black_team
-	else:
-		direction = -1
-		team = white_team
+def king_pressed(y, x, color, index, team, opp_team):
+
 	print("King pressed")
+
+	removing_unwanted_pieces()
+
+	recover_hidden_buttons(opp_team)
+
+	#If the right player pressed the button
+	if(color == "white"):
+		opp_color = "black"
+	else:
+		opp_color = "white"
+	if((whose_turn%2 == 0 and color == "black") or (whose_turn%2 != 0 and color == "white")):
+		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
+		return None
+
+	direction = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)] #[down, downright, right, ... , downleft] anticlockwise
+
+	king_move = Possible_moves([], [], [], [], [], [], [], [])
+
+	#Looping through all moving directions
+	for i in direction:
+
+		is_free = True
+		temporary_x_coord, temporary_y_coord = x, y
+		temporary_x_coord += i[0]
+		temporary_y_coord += i[1]
+
+		for z in range(16):
+			if(temporary_x_coord == opp_team.x_coord[z] and temporary_y_coord == opp_team.y_coord[z]):
+				king_move.attack_x.append(temporary_x_coord)
+				king_move.attack_y.append(temporary_y_coord)
+				is_free = False
+			if(temporary_x_coord == team.x_coord[z] and temporary_y_coord == team.y_coord[z]):
+				is_free = False
+			if(temporary_x_coord > 7 or temporary_x_coord < 0 or temporary_y_coord > 7 or temporary_y_coord < 0):
+				is_free = False
+
+		if is_free:
+			king_move.free_x_list.append(temporary_x_coord)
+			king_move.free_y_list.append(temporary_y_coord)
+
+	#Adding possible moves and attack to seperate lists
+	global possible_moves, possible_attacks
+	possible_moves = [None]*len(king_move.free_x_list)
+	possible_attacks = [None]*len(king_move.attack_x)
+
+	#Binding key press to check if possible move was pressed
+	game_canvas.bind("<Button-1>", lambda event: click_coordinates(event, king_move.free_x_list, king_move.free_y_list, y, x, color, "king", index, team, king_move.attack_x, king_move.attack_y, opp_team))
+
+	display_possible_moves(possible_moves, possible_attacks, king_move, team, opp_team)
 
 
 def create_buttons():
