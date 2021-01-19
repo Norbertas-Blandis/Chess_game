@@ -21,6 +21,7 @@ class Team:
 		self.alive_characters = alive_characters
 		self.in_danger_buttons = in_danger
 		self.is_in_danger = is_in_danger
+		self.did_pawn_transform = [0]*16
 
 
 class Possible_moves:
@@ -160,6 +161,10 @@ def remove_player(old_y, old_x, new_y, new_x, color, character_type, index, team
 		else:
 			recover_hidden_buttons(opp_team)
 
+	#if the pawn reached other side of the board, choose new character for it
+	if(team.count[index] > 0 and (team.y_coord[index] == 7 or team.y_coord[index] == 0) and team.did_pawn_transform[index] == 0):
+		pawn_reached_end(index, team)
+
 	move_player(old_y, old_x, new_y, new_x, color, character_type, index)
 
 def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
@@ -169,7 +174,11 @@ def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
 
 	print(old_x, old_y, " moves to ", new_x, new_y)
 
-	print("Length of green squares: ", len(possible_moves))
+	"""print("Do need to clean choices: " + str(clean_pawn_choices))
+	if clean_pawn_choices:
+		choose_canvas.destroy()
+		game_canvas.delete(choose_text)
+		clean_pawn_choices = False"""
 
 	removing_unwanted_pieces()
 
@@ -220,6 +229,10 @@ def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
 		image_3 = w_king_w
 		image_4 = w_king_b
 
+	#if the pawn reached other side of the board, choose new character for it
+	if(team.count[index] > 0 and (team.y_coord[index] == 7 or team.y_coord[index] == 0) and team.did_pawn_transform[index] == 0):
+		pawn_reached_end(index, team)
+
 	#Calling a function to display new place for the piece
 	if(color == "black"):
 		display_character(new_y, new_x, image_1, image_2, character_type, color, index)
@@ -254,6 +267,160 @@ def display_possible_moves(possible_moves, possible_attacks, character_move, tea
 
 		possible_attacks[i] = game_canvas.create_image(80*character_move.attack_x[i], 80*character_move.attack_y[i], image = temporary_image, anchor = "nw")
 		window.update()
+
+
+def change_character_type(change, team, index, image_1, image_2):
+
+	removing_unwanted_pieces()
+
+	#Removing choices gui
+	choose_canvas.destroy()
+	game_canvas.delete(choose_text)
+	clean_pawn_choices = 0
+
+	#Changing the character type
+	team.list[index] = change
+	team.did_pawn_transform[index] = 1
+	game_canvas.delete(team.button[index])
+	display_character(team.y_coord[index], team.x_coord[index], image_1, image_2, team.list[index], team.color, index)
+
+
+def click_coordinates_pawn_transform(event, possible_change_buttons, team, index, possible_changes):
+
+	for i in range(len(possible_changes)):
+
+		if(possible_changes[i] == "pawn"):
+			if(team.color == "black"):
+				temporary_image = b_pawn_w
+				image_2 = b_pawn_b
+			else:
+				temporary_image = w_pawn_w
+				image_2 = w_pawn_b
+
+		if(possible_changes[i] == "rook"):
+			if(team.color == "black"):
+				temporary_image = b_rook_w
+				image_2 = b_rook_b
+			else:
+				temporary_image = w_rook_w
+				image_2 = w_rook_b
+
+		if(possible_changes[i] == "knight"):
+			if(team.color == "black"):
+				temporary_image = b_knight_w
+				image_2 = b_knight_b
+			else:
+				temporary_image = w_knight_w
+				image_2 = w_knight_b
+
+		if(possible_changes[i] == "bishop"):
+			if(team.color == "black"):
+				temporary_image = b_bishop_w
+				image_2 = b_bishop_b
+			else:
+				temporary_image = w_bishop_w
+				image_2 = w_bishop_b
+
+		if(possible_changes[i] == "queen"):
+			if(team.color == "black"):
+				temporary_image = b_queen_w
+				image_2 = b_queen_b
+			else:
+				temporary_image = w_queen_w
+				image_2 = w_queen_b
+
+		temporary_coords = choose_canvas.coords(possible_change_buttons[i])
+		print(event.x, temporary_coords[0], temporary_coords[0]+80)
+		if(event.x > temporary_coords[0] and event.x < temporary_coords[0] + 80):
+			print(possible_changes[i], "was chosen")
+			change_character_type(possible_changes[i], team, index, temporary_image, image_2)
+
+
+def pawn_reached_end(index, team):
+
+	global clean_pawn_choices
+	clean_pawn_choices = 1
+	print(clean_pawn_choices)
+
+	#Creating a list of possible changes 
+	possible_changes = []
+	for i in range(16):
+		if(i == index):
+			for z in range(16):
+				if(team.life[z] == 0):
+
+					is_same = False
+					for j in possible_changes:
+						if(j == team.list[z]):
+							is_same = True
+					if not is_same:
+						possible_changes.append(team.list[z])
+
+
+	print("Can change character type to: ")
+	print(possible_changes)
+
+	#Creating a new canvas for choosing new character
+	canvas_length = 80*len(possible_changes)
+	canvas_heigth = 80
+	global choose_canvas, choose_text
+	choose_canvas = Canvas(window, height = canvas_heigth, width = canvas_length, bg = "red")
+	choose_canvas.grid(column = 0, row = 0, padx = 10, pady = 10)
+	choose_text = game_canvas.create_text(300, 265, fill = "blue", font = "Times 15 italic bold", text = "Which character would you like your pawn to transform to?")
+
+	#Creating choose buttons
+	possible_change_buttons = [None]*len(possible_changes)
+	for i in range(len(possible_changes)):
+
+		if(possible_changes[i] == "pawn"):
+			if(team.color == "black"):
+				temporary_image = b_pawn_w
+				image_2 = b_pawn_b
+			else:
+				temporary_image = w_pawn_w
+				image_2 = w_pawn_b
+
+		if(possible_changes[i] == "rook"):
+			if(team.color == "black"):
+				temporary_image = b_rook_w
+				image_2 = b_rook_b
+			else:
+				temporary_image = w_rook_w
+				image_2 = w_rook_b
+
+		if(possible_changes[i] == "knight"):
+			if(team.color == "black"):
+				temporary_image = b_knight_w
+				image_2 = b_knight_b
+			else:
+				temporary_image = w_knight_w
+				image_2 = w_knight_b
+
+		if(possible_changes[i] == "bishop"):
+			if(team.color == "black"):
+				temporary_image = b_bishop_w
+				image_2 = b_bishop_b
+			else:
+				temporary_image = w_bishop_w
+				image_2 = w_bishop_b
+
+		if(possible_changes[i] == "queen"):
+			if(team.color == "black"):
+				temporary_image = b_queen_w
+				image_2 = b_queen_b
+			else:
+				temporary_image = w_queen_w
+				image_2 = w_queen_b
+
+		"""temporary_button = Button(window, image = temporary_image, height = "80", width = "80", command = lambda:change_character_type(possible_changes[i], team, index, temporary_image, image_2))
+		possible_change_buttons[i] = choose_canvas.create_window(40+80*i, 40, window = temporary_button)
+		window.update()"""
+
+		possible_change_buttons[i] = choose_canvas.create_image(80*i+2, 2, image = temporary_image, anchor = "nw")
+
+	#Binding key press to check if possible move was pressed
+	choose_canvas.bind("<Button-1>", lambda event: click_coordinates_pawn_transform(event, possible_change_buttons, team, index, possible_changes))
+
 
 def pawn_pressed_1(team, opp_team, y, x, direction, z, index):
 
@@ -343,6 +510,7 @@ def pawn_pressed(y, x, color, index, team, opp_team):
 
 	print("Pawn pressed")
 
+	#If the right player order
 	if(color == "white"):
 		opp_color = "black"
 	else:
@@ -351,6 +519,12 @@ def pawn_pressed(y, x, color, index, team, opp_team):
 		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
 		return None
 
+	#Cleaning possible pawn transformations if needed
+	global clean_pawn_choices
+	if(clean_pawn_choices == 1):
+		choose_canvas.destroy()
+		game_canvas.delete(choose_text)
+		clean_pawn_choices = 0
 
 	#Clearing current possible moves squares for new options when clicked
 	global possible_moves
@@ -391,6 +565,13 @@ def rook_pressed(y, x, color, index, team, opp_team):
 	if((whose_turn%2 == 0 and color == "black") or (whose_turn%2 != 0 and color == "white")):
 		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
 		return None
+
+	#Cleaning possible pawn transformations if needed
+	global clean_pawn_choices
+	if(clean_pawn_choices == 1):
+		choose_canvas.destroy()
+		game_canvas.delete(choose_text)
+		clean_pawn_choices = 0
 
 	#If it is the queen, do not clear the board
 	if(team.list[index] != "queen"):
@@ -495,6 +676,13 @@ def knight_pressed(y, x, color, index, team, opp_team):
 	if((whose_turn%2 == 0 and color == "black") or (whose_turn%2 != 0 and color == "white")):
 		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
 		return None
+
+	#Cleaning possible pawn transformations if needed
+	global clean_pawn_choices
+	if(clean_pawn_choices == 1):
+		choose_canvas.destroy()
+		game_canvas.delete(choose_text)
+		clean_pawn_choices = 0
 
 	removing_unwanted_pieces()
 
@@ -613,6 +801,13 @@ def bishop_pressed(y, x, color, index, team, opp_team):
 		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
 		return None
 
+	#Cleaning possible pawn transformations if needed
+	global clean_pawn_choices
+	if(clean_pawn_choices == 1):
+		choose_canvas.destroy()
+		game_canvas.delete(choose_text)
+		clean_pawn_choices = 0
+
 	removing_unwanted_pieces()
 
 	recover_hidden_buttons(opp_team)
@@ -699,6 +894,13 @@ def king_pressed(y, x, color, index, team, opp_team):
 		messagebox.showinfo("Not your move", opp_color.title()+ " team is on the move")
 		return None
 
+	#Cleaning possible pawn transformations if needed
+	global clean_pawn_choices
+	if(clean_pawn_choices == 1):
+		choose_canvas.destroy()
+		game_canvas.delete(choose_text)
+		clean_pawn_choices = 0
+
 	direction = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)] #[down, downright, right, ... , downleft] anticlockwise
 
 	king_move = Possible_moves([], [], [], [], [], [], [], [])
@@ -749,7 +951,7 @@ def create_buttons():
 
 	board_buttons = [None]*64 
 	game_canvas = Canvas(window, height = "640", width = "640", bg = "orange")
-	game_canvas.pack()
+	game_canvas.grid(column = 0, row = 0)
 
 	#Place buttons on the canvas
 	x_coord, y_coord = 0, 0
@@ -959,6 +1161,7 @@ white_team = Team([None]*16, [None]*16, [None]*16, "white", [0]*16, [1]*16, [Non
 possible_moves, possible_attacks = [], []
 click_x, click_y = 0, 0
 whose_turn = 0 #even-white, odd-black
+clean_pawn_choices = 0 #Decide if need to clean pawn transform choices
 
 #Upload background images
 white_square = PhotoImage(file = "white_square.png")
