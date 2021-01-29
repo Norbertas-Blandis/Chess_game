@@ -10,7 +10,7 @@ def configure_game():
 
 class Team:
 
-	def __init__(self, team_list, x_coord, y_coord, color, count, lives, button, alive_characters, in_danger, is_in_danger):
+	def __init__(self, team_list, x_coord, y_coord, color, count, lives, button, alive_characters, in_danger, is_in_danger, castle):
 		self.list = team_list
 		self.x_coord = x_coord
 		self.y_coord = y_coord
@@ -21,6 +21,7 @@ class Team:
 		self.alive_characters = alive_characters
 		self.in_danger_buttons = in_danger
 		self.is_in_danger = is_in_danger
+		self.castle = castle
 		self.did_pawn_transform = [0]*16
 
 
@@ -110,18 +111,45 @@ def click_coordinates(event, possible_move_x, possible_move_y, y, x, color, char
 	if(character == "pawn" and team.count[index] == 0):
 		team.count[index] += 1
 
+	#If can castle, split possible moves and possible castles
+	if team.list[index] == "king":
+		how_many_checks = len(possible_move_x) - len(possible_castles_x)
+	else:
+		how_many_checks = len(possible_move_x)
+
 	#Looping through all possible moves and if click match, call move_player
-	for i in range(len(possible_move_x)):
+	for i in range(how_many_checks):
 
 		possible_move_coord_x = possible_move_x[i]*80
 		possible_move_coord_y = possible_move_y[i]*80
 		if(click_x > possible_move_coord_x and click_x < possible_move_coord_x+80):
 			if(click_y > possible_move_coord_y and click_y < possible_move_coord_y+80):
 				move_player(y, x, possible_move_y[i], possible_move_x[i], color, character, index)
+	#If king was pressed additionally looping through possible castle moves
+	if team.list[index] == "king":
+		for i in range(how_many_checks, len(possible_move_x)):
+			possible_move_coord_x = possible_move_x[i]*80
+			possible_move_coord_y = possible_move_y[i]*80
+			if(click_x > possible_move_coord_x and click_x < possible_move_coord_x+80):
+				if(click_y > possible_move_coord_y and click_y < possible_move_coord_y+80):
+					move_player(y, x, possible_move_y[i], possible_move_x[i], color, character, index) #Moving the king
+
+					if(possible_move_x[i] > x):
+						rook_x = 7
+						new_rook_x = possible_move_x[i] - 1
+					else:
+						rook_x = 0
+						new_rook_x = possible_move_x[i] + 1
+					for z in range(16):
+						if(team.x_coord[z] == rook_x and team.y_coord[z] == y):
+							temp_index = z
+					global did_castle
+					did_castle = True
+					team.castle = 1
+					move_player(y, rook_x, possible_move_y[i], new_rook_x, color, "rook", temp_index) #Moving the rook
 
 	#Looping through all possible attacks and if click match, call remove_player
 	for i in range(len(possible_attack_x)):
-
 		possible_attack_coord_x = possible_attack_x[i]*80
 		possible_attack_coord_y = possible_attack_y[i]*80
 		if(click_x > possible_attack_coord_x and click_x < possible_attack_coord_x+80):
@@ -169,8 +197,9 @@ def remove_player(old_y, old_x, new_y, new_x, color, character_type, index, team
 
 def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
 
-	global whose_turn
-	whose_turn += 1
+	global whose_turn, did_castle
+	if not did_castle:
+		whose_turn += 1
 
 	print(old_x, old_y, " moves to ", new_x, new_y)
 
@@ -928,7 +957,43 @@ def king_pressed(y, x, color, index, team, opp_team):
 			king_move.free_y_list.append(temporary_y_coord)
 
 	#Adding possible moves and attack to seperate lists
-	global possible_moves, possible_attacks
+	global possible_moves, possible_attacks, possible_castles_x, possible_castles_y
+	possible_castles_x, possible_castles_y = [], []
+
+	#Looking if the king can castle
+	if(team.count[index] == 0):
+		for i in range(16):
+			if(team.list[i] == "rook" and team.castle == 0):
+				can_castle = True
+				if(team.x_coord[index] > team.x_coord[i]):
+					start_coord = team.x_coord[i]+1
+					end_coord = team.x_coord[index]
+				else:
+					start_coord = team.x_coord[index]+1
+					end_coord = team.x_coord[i]
+				for z in range(start_coord, end_coord):
+					print(z)
+					for j in range(16):
+						if(team.x_coord[j] == z and team.y_coord[j] == team.y_coord[index]):
+							print("Taken by their own")
+							can_castle = False
+						if(opp_team.x_coord[j] == z and opp_team.y_coord[j] == team.y_coord[index]):
+							print("Taken by the enemy")
+							can_castle = False	
+
+				#If can castle, add it to possible move list	
+				if can_castle:
+					if team.x_coord[index] > team.x_coord[i]:
+						king_move.free_x_list.append(team.x_coord[index] - 2)
+						possible_castles_x.append(team.x_coord[index] - 2)
+					else:
+						king_move.free_x_list.append(team.x_coord[index] + 2)
+						possible_castles_x.append(team.x_coord[index] + 2)
+
+					king_move.free_y_list.append(team.y_coord[index])
+					possible_castles_y.append(team.y_coord[index])
+					print("Can castle at", team.x_coord[i], team.y_coord[i])
+
 	possible_moves = [None]*len(king_move.free_x_list)
 	possible_attacks = [None]*len(king_move.attack_x)
 
@@ -1156,12 +1221,13 @@ def mainloop():
 window = Tk()
 
 #Defining team variables
-black_team = Team([None]*16, [None]*16, [None]*16, "black", [0]*16, [1]*16, [None]*16, 16, [None]*16, [0]*16)
-white_team = Team([None]*16, [None]*16, [None]*16, "white", [0]*16, [1]*16, [None]*16, 16, [None]*16, [0]*16)
+black_team = Team([None]*16, [None]*16, [None]*16, "black", [0]*16, [1]*16, [None]*16, 16, [None]*16, [0]*16, 0)
+white_team = Team([None]*16, [None]*16, [None]*16, "white", [0]*16, [1]*16, [None]*16, 16, [None]*16, [0]*16, 0)
 possible_moves, possible_attacks = [], []
 click_x, click_y = 0, 0
 whose_turn = 0 #even-white, odd-black
 clean_pawn_choices = 0 #Decide if need to clean pawn transform choices
+did_castle = False
 
 #Upload background images
 white_square = PhotoImage(file = "white_square.png")
