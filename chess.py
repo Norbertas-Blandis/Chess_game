@@ -200,14 +200,10 @@ def move_player(old_y, old_x, new_y, new_x, color, character_type, index):
 	global whose_turn, did_castle
 	if not did_castle:
 		whose_turn += 1
+	else:
+		did_castle = False
 
 	print(old_x, old_y, " moves to ", new_x, new_y)
-
-	"""print("Do need to clean choices: " + str(clean_pawn_choices))
-	if clean_pawn_choices:
-		choose_canvas.destroy()
-		game_canvas.delete(choose_text)
-		clean_pawn_choices = False"""
 
 	removing_unwanted_pieces()
 
@@ -304,7 +300,6 @@ def change_character_type(change, team, index, image_1, image_2):
 
 	#Removing choices gui
 	choose_canvas.destroy()
-	game_canvas.delete(choose_text)
 	clean_pawn_choices = 0
 
 	#Changing the character type
@@ -361,7 +356,6 @@ def click_coordinates_pawn_transform(event, possible_change_buttons, team, index
 		temporary_coords = choose_canvas.coords(possible_change_buttons[i])
 		print(event.x, temporary_coords[0], temporary_coords[0]+80)
 		if(event.x > temporary_coords[0] and event.x < temporary_coords[0] + 80):
-			print(possible_changes[i], "was chosen")
 			change_character_type(possible_changes[i], team, index, temporary_image, image_2)
 
 
@@ -392,10 +386,9 @@ def pawn_reached_end(index, team):
 	#Creating a new canvas for choosing new character
 	canvas_length = 80*len(possible_changes)
 	canvas_heigth = 80
-	global choose_canvas, choose_text
+	global choose_canvas
 	choose_canvas = Canvas(window, height = canvas_heigth, width = canvas_length, bg = "red")
 	choose_canvas.grid(column = 0, row = 0, padx = 10, pady = 10)
-	choose_text = game_canvas.create_text(300, 265, fill = "blue", font = "Times 15 italic bold", text = "Which character would you like your pawn to transform to?")
 
 	#Creating choose buttons
 	possible_change_buttons = [None]*len(possible_changes)
@@ -440,10 +433,6 @@ def pawn_reached_end(index, team):
 			else:
 				temporary_image = w_queen_w
 				image_2 = w_queen_b
-
-		"""temporary_button = Button(window, image = temporary_image, height = "80", width = "80", command = lambda:change_character_type(possible_changes[i], team, index, temporary_image, image_2))
-		possible_change_buttons[i] = choose_canvas.create_window(40+80*i, 40, window = temporary_button)
-		window.update()"""
 
 		possible_change_buttons[i] = choose_canvas.create_image(80*i+2, 2, image = temporary_image, anchor = "nw")
 
@@ -552,7 +541,6 @@ def pawn_pressed(y, x, color, index, team, opp_team):
 	global clean_pawn_choices
 	if(clean_pawn_choices == 1):
 		choose_canvas.destroy()
-		game_canvas.delete(choose_text)
 		clean_pawn_choices = 0
 
 	#Clearing current possible moves squares for new options when clicked
@@ -599,7 +587,6 @@ def rook_pressed(y, x, color, index, team, opp_team):
 	global clean_pawn_choices
 	if(clean_pawn_choices == 1):
 		choose_canvas.destroy()
-		game_canvas.delete(choose_text)
 		clean_pawn_choices = 0
 
 	#If it is the queen, do not clear the board
@@ -710,7 +697,6 @@ def knight_pressed(y, x, color, index, team, opp_team):
 	global clean_pawn_choices
 	if(clean_pawn_choices == 1):
 		choose_canvas.destroy()
-		game_canvas.delete(choose_text)
 		clean_pawn_choices = 0
 
 	removing_unwanted_pieces()
@@ -834,7 +820,6 @@ def bishop_pressed(y, x, color, index, team, opp_team):
 	global clean_pawn_choices
 	if(clean_pawn_choices == 1):
 		choose_canvas.destroy()
-		game_canvas.delete(choose_text)
 		clean_pawn_choices = 0
 
 	removing_unwanted_pieces()
@@ -927,7 +912,6 @@ def king_pressed(y, x, color, index, team, opp_team):
 	global clean_pawn_choices
 	if(clean_pawn_choices == 1):
 		choose_canvas.destroy()
-		game_canvas.delete(choose_text)
 		clean_pawn_choices = 0
 
 	direction = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)] #[down, downright, right, ... , downleft] anticlockwise
